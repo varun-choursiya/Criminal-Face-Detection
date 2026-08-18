@@ -28,9 +28,20 @@ CORS(app, resources={r"/*": {"origins": FRONTEND_ORIGIN}})
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 
 # Load OpenCV face detection models
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+cascade_path = os.path.join(cv2.data.haarcascades, 'haarcascade_frontalface_default.xml') if hasattr(cv2, 'data') and hasattr(cv2.data, 'haarcascades') else ''
+face_cascade = cv2.CascadeClassifier(cascade_path)
+
 if face_cascade.empty():
-    raise RuntimeError("OpenCV Haar cascade failed to load.")
+    # Try current directory fallback if cv2.data fails in cloud container
+    local_cascade = BASE_DIR / 'haarcascade_frontalface_default.xml'
+    if local_cascade.exists():
+        face_cascade = cv2.CascadeClassifier(str(local_cascade))
+
+if face_cascade.empty():
+    raise RuntimeError(
+        f"OpenCV Haar cascade failed to load from '{cascade_path}'. "
+        "Ensure opencv-python or opencv-python-headless is installed properly."
+    )
 contrib_available = hasattr(cv2, 'face')
 if not contrib_available:
     warnings.warn(
